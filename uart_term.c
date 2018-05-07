@@ -19,7 +19,25 @@ extern int vsnprintf (char * s, size_t n, const char * format, va_list arg );
 //*****************************************************************************
 //                 GLOBAL VARIABLES
 //*****************************************************************************
-static UART_Handle      uartHandle;
+UART_Handle      uartHandle;
+UART_Handle      dataUartHandle;
+
+
+//Void uartRxThread(UArg arg0, UArg arg1)
+
+
+//Void cloudTxThread(UArg arg0, UArg arg1)
+void* cloudTxThread(void *pvParameters)
+{
+    MsgObj msg;
+
+    Mailbox_pend((Mailbox_Handle)pvParameters, &msg, BIOS_WAIT_FOREVER);
+
+    UART_PRINT("cloudTxThread:  %s\n\r",msg.val);
+
+    return (0);
+}
+
 
 //*****************************************************************************
 //
@@ -47,9 +65,12 @@ UART_Handle InitTerm(void)
     uartParams.readEcho         = UART_ECHO_OFF;
     uartParams.baudRate         = 115200;
 
-    uartHandle = UART_open(Board_UART0, &uartParams);
+    uartHandle = UART_open(Board_UART1, &uartParams);
+    dataUartHandle = UART_open(Board_UART0, &uartParams);
+
     /* remove uart receive from LPDS dependency */
-    UART_control(uartHandle, UART_CMD_RXDISABLE, NULL);
+    //UART_control(uartHandle, UART_CMD_RXDISABLE, NULL);
+   // UART_control(dataUartHandle, UART_CMD_RXDISABLE, NULL);
 
     return(uartHandle);
 }
@@ -169,7 +190,7 @@ int GetCmd(char *pcBuffer, unsigned int uiBufLen)
     int     iLen = 0;
 
 
-    UART_readPolling(uartHandle, &cChar, 1);
+    (uartHandle, &cChar, 1);
 
     iLen = 0;
 
@@ -230,6 +251,57 @@ int GetCmd(char *pcBuffer, unsigned int uiBufLen)
     }
 
     *(pcBuffer + iLen) = '\0';
+
+    return iLen;
+}
+
+
+//*****************************************************************************
+//
+//! Get the Command string from UART
+//!
+//! \param[in]  pucBuffer   - is the command store to which command will be
+//!                           populated
+//! \param[in]  ucBufLen    - is the length of buffer store available
+//!
+//! \return Length of the bytes received. -1 if buffer length exceeded.
+//!
+//*****************************************************************************
+int GetString(char *pcBuffer, unsigned int uiBufLen)
+{
+    char    cChar;
+    int     iLen = 0;
+
+
+
+    iLen = 0;
+
+    //
+    // Checking the end of Command
+    //
+    while(1)
+    {
+        UART_readPolling(dataUartHandle, &cChar, 1);
+        *(pcBuffer + iLen) = cChar;
+        iLen++;
+
+        //
+        // Handling overflow of buffer
+        //
+        if(iLen >= uiBufLen)
+        {
+            return -1;
+        }
+
+        //
+        // Copying Data from UART into a buffer
+        //
+        if(cChar == '\0')
+        {
+            break;
+        }
+
+    }
 
     return iLen;
 }

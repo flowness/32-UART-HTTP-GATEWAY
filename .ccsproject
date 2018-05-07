@@ -15,4 +15,5 @@
 	<templateProperties value="id=local_time_CC3220SF_LAUNCHXL_tirtos_ccs.projectspec.local_time_CC3220SF_LAUNCHXL_tirtos_ccs,buildProfile=release,isHybrid=true,"/>
 	<origin value="C:\ti\simplelink_cc32xx_sdk_2_10_00_04\examples\rtos\CC3220SF_LAUNCHXL\demos\local_time\tirtos\ccs\local_time_CC3220SF_LAUNCHXL_tirtos_ccs.projectspec"/>
 	<filesToOpen value=""/>
+	<isTargetManual value="false"/>
 </projectOptions>

@@ -32,12 +32,22 @@
 
 #ifndef __BOARD_H
 #define __BOARD_H
+#include <stdarg.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+#include <ti/sysbios/knl/Mailbox.h>
 
 #include "CC3220SF_LAUNCHXL.h"
+
+
+typedef struct MsgObj {
+    Int    id;
+    Int    len;
+    Bool   free;
+    Char   val[512];
+} MsgObj;
 
 #define Board_initGeneral            CC3220SF_LAUNCHXL_initGeneral
 
@@ -94,6 +104,13 @@ extern "C" {
 /* Board specific I2C addresses */
 #define Board_TMP_ADDR               (0x41)
 #define Board_SENSORS_BP_TMP_ADDR    (0x40)
+
+/*
+ * This type is accessed by the application. When changing the data members of
+ * this structure, considerations should be made for padding and data alignment.
+ */
+
+
 
 #ifdef __cplusplus
 }

@@ -38,14 +38,16 @@
 #include <stdarg.h>
 #include <unistd.h>
 
+
 /* TI-DRIVERS Header files */
 #include <ti/drivers/GPIO.h>
 #include <ti/drivers/SPI.h>
-#include <ti/drivers/UART.h>
+//#include <ti/drivers/UART.h>
 #include <ti/drivers/Power.h>
 #include <ti/drivers/net/wifi/simplelink.h>
 #include <ti/net/utils/clock_sync.h>
 #include <ti/drivers/net/wifi/slnetifwifi.h>
+#include <ti/net/http/httpclient.h>
 
 #include "uart_term.h"
 #include "pthread.h"
@@ -55,10 +57,27 @@
 //*****************************************************************************
 #define LOCALTIME_APPLICATION_NAME                      "Local Time"
 #define LOCALTIME_APPLICATION_VERSION                   "1.0.0"
+/*
+#define LOCALTIME_SSID_NAME                             "225_732a6c"                // AP SSID
+#define LOCALTIME_SECURITY_TYPE                         SL_WLAN_SEC_TYPE_WPA_WPA2   // Security type could be SL_WLAN_SEC_TYPE_WPA_WPA2
+#define LOCALTIME_SECURITY_KEY                          "2a6c1234"                  // Password of the secured AP
+*/
 
-#define LOCALTIME_SSID_NAME                             "tsunami"             /* AP SSID */
-#define LOCALTIME_SECURITY_TYPE                         SL_WLAN_SEC_TYPE_OPEN /* Security type could be SL_WLAN_SEC_TYPE_WPA_WPA2 */
-#define LOCALTIME_SECURITY_KEY                          ""                    /* Password of the secured AP */
+#define LOCALTIME_SSID_NAME                             "Paradox-rnd_2.4"                // AP SSID
+#define LOCALTIME_SECURITY_TYPE                         SL_WLAN_SEC_TYPE_WPA_WPA2   // Security type could be SL_WLAN_SEC_TYPE_WPA_WPA2
+#define LOCALTIME_SECURITY_KEY                          "P@r@d0xx"                  // Password of the secured AP
+
+
+//#define HOSTNAME "https://yg8rvhiiq0.execute-api.eu-west-1.amazonaws.com"
+//#define REQUEST_URI "/poc/measurement"
+#define USER_AGENT            "HTTPClient (ARM; TI-RTOS)"
+#define HTTP_MIN_RECV         (256)
+
+//#define HOSTNAME "https://httpbin.org"
+//#define REQUEST_URI "/post"
+
+//#define ABS_URI "https://httpbin.org/post"
+#define ABS_URI "https://yg8rvhiiq0.execute-api.eu-west-1.amazonaws.com/poc/measurement"
 
 #define LOCALTIME_SLNET_IF_WIFI_PRIO                    (5)
 
@@ -130,6 +149,7 @@ typedef struct _LocalTime_ControlBlock_t_
     uint32_t                status;    //SimpleLink Status
     LocalTime_UseCases      useCase;
 }LocalTime_ControlBlock;
+
 
 //****************************************************************************
 // GLOBAL VARIABLES
@@ -319,8 +339,23 @@ int32_t LocalTime_initDevice(void)
     int32_t retVal = -1;
     int32_t mode = -1;
 
+
     mode = sl_Start(0, 0, 0);
     LOCALTIME_ASSERT_ON_ERROR(mode);
+    sl_WlanSetMode(ROLE_STA);
+    sl_Stop(0);
+    mode = sl_Start(NULL,NULL,NULL);
+    LOCALTIME_ASSERT_ON_ERROR(mode);
+
+    if (mode == 0)
+    {
+        UART_PRINT("set device to STA mode: %d \n\r",mode);
+    }
+    else
+    {
+        UART_PRINT("set device to STA mode error: %d\n\r",mode);
+    }
+
 
     // Check if the device is not in station-mode
     if (ROLE_STA != mode)
@@ -530,6 +565,99 @@ void LocalTime_connect(void)
     }    
 }
 
+/*
+void* uartRxThread(void *pvParameters)
+{
+
+    //MsgObj msg;
+    int len=0;
+    char message[512]={0};
+    // Print Application name
+    HTTPClient_extSecParams httpClientSecParams;
+
+    httpClientSecParams.rootCa = "dst-root-ca-x3.der"; //"dummy-ca-cert.der";
+    httpClientSecParams.clientCert = NULL;
+    httpClientSecParams.privateKey = NULL;
+
+    HTTPClient_Handle httpClientHandle;
+    int16_t statusCode;
+    httpClientHandle = HTTPClient_create(&statusCode,0);
+    if (statusCode < 0)
+    {
+        UART_PRINT("httpTask(%d): creation of http client handle failed", statusCode);
+    }
+
+    statusCode = HTTPClient_setHeader(httpClientHandle, HTTPClient_HFIELD_REQ_USER_AGENT,USER_AGENT,strlen(USER_AGENT),HTTPClient_HFIELD_PERSISTENT);
+    if (statusCode < 0) {
+        UART_PRINT("httpTask(%d): setting request header failed", statusCode);
+    }
+
+    //msg.id=0;
+    while(1)
+    {
+        UART_PRINT("uartRxThread ready to recive \n\r");
+
+        len=GetString(message,sizeof(message));
+        if(len>0)
+        {
+            UART_PRINT("uartRxThread(%d) recived: %s\n\r",len,message);
+
+
+            statusCode = HTTPClient_connect(httpClientHandle,HOSTNAME,&httpClientSecParams,0);
+            if (statusCode < 0) {
+                UART_PRINT("httpTask(%d): connect failed\n\r", statusCode);
+            }
+            statusCode = HTTPClient_sendRequest(httpClientHandle,HTTP_METHOD_POST,REQUEST_URI,message,strlen(message),0);
+            if (statusCode < 0) {
+                UART_PRINT("httpTask(%d): send failed\n\r", statusCode);
+            }
+
+            if (statusCode != HTTP_SC_OK) {
+                UART_PRINT("httpTask(%d): cannot get status\n\r", statusCode);
+            }
+
+            UART_PRINT("HTTP Response Status Code: %d\n\r", statusCode);
+
+            bool moreDataFlag = false;
+
+            do {
+                statusCode = HTTPClient_readResponseBody(httpClientHandle, message, sizeof(message), &moreDataFlag);
+                if (statusCode < 0) {
+                    UART_PRINT("httpTask(%d): response body processing failed\n\r", statusCode);
+                }
+                len += statusCode;
+            }while (moreDataFlag);
+
+            UART_PRINT(message);
+            UART_PRINT("\n\r");
+
+
+            //msg.len=len;
+            //if(Mailbox_post((Mailbox_Handle)pvParameters, &msg, BIOS_NO_WAIT))
+            //{
+            //    UART_PRINT("uartRxThread(%d) mailbox success: %d- %s\n\r",msg.len,msg.id,msg.val);
+            //}
+            //else
+            //{
+            //    UART_PRINT("uartRxThread(%d) mailbox failed: %d- %s\n\r",msg.len,msg.id,msg.val);
+            //}
+            //msg.id++;
+            //
+
+        }
+    }
+
+    statusCode = HTTPClient_disconnect(httpClientHandle);
+    if (statusCode < 0)
+    {
+        UART_PRINT("httpTask(%d): disconnect failed", statusCode);
+    }
+
+    HTTPClient_destroy(httpClientHandle);
+
+    return (0);
+}
+*/
 //*****************************************************************************
 //
 //! \brief Task Created by main function.
@@ -544,15 +672,26 @@ void mainThread(void *pvParameters)
     int32_t             status = 0;
     pthread_t           spawn_thread = (pthread_t)NULL;
     pthread_attr_t      pAttrs_spawn;
+    int32_t             mode;
     struct sched_param  priParam;
     struct tm           netTime;
-    int32_t             mode;
+
+    int len=0;
+    char message[512]={0};
+    /* Print Application name */
+    HTTPClient_extSecParams httpClientSecParams;
+/*
+    pthread_t           uart_rx_thread = (pthread_t)NULL;
+    //pthread_t           cloud_tx_thread = (pthread_t)NULL;
+    pthread_attr_t      pAttrs;
+    int                 detachState;
     uint8_t             ssid[33];
     uint16_t            len = 33;
     uint16_t            config_opt = SL_WLAN_AP_OPT_SSID;
     char                tzsel[5];
+*/
 
-    /* Initialize SlNetSock layer with CC3x20 interface                      */
+    // Initialize SlNetSock layer with CC3x20 interface
     SlNetIf_init(0);
     SlNetIf_add(SLNETIF_ID_1, "CC3220", (const SlNetIf_Config_t *)&SlNetIfConfigWifi, LOCALTIME_SLNET_IF_WIFI_PRIO);
 
@@ -585,15 +724,70 @@ void mainThread(void *pvParameters)
         return;
     }
 
+
+    httpClientSecParams.rootCa = "dst-root-ca-x3.der"; //"dummy-ca-cert.der";
+    httpClientSecParams.clientCert = NULL;
+    httpClientSecParams.privateKey = NULL;
+
+    HTTPClient_Handle httpClientHandle;
+    int16_t statusCode;
+    httpClientHandle = HTTPClient_create(&statusCode,0);
+    if (statusCode < 0)
+    {
+        UART_PRINT("httpTask(%d): creation of http client handle failed", statusCode);
+    }
+
+    statusCode = HTTPClient_setHeader(httpClientHandle, HTTPClient_HFIELD_REQ_USER_AGENT,USER_AGENT,strlen(USER_AGENT),HTTPClient_HFIELD_PERSISTENT);
+    if (statusCode < 0) {
+        UART_PRINT("httpTask(%d): setting request header failed", statusCode);
+    }
+/*
+    // Set priority and stack size attributes
+    pthread_attr_init(&pAttrs);
+    priParam.sched_priority = 8;
+
+    detachState = PTHREAD_CREATE_DETACHED;
+    status = pthread_attr_setdetachstate(&pAttrs, detachState);
+    if (status != 0) {
+        // pthread_attr_setdetachstate() failed
+        while (1);
+    }
+
+    pthread_attr_setschedparam(&pAttrs, &priParam);
+
+    status |= pthread_attr_setstacksize(&pAttrs, LOCALTIME_SPAWN_STACK_SIZE);
+    if (status != 0) {
+        // pthread_attr_setstacksize() failed
+        while (1);
+    }
+
+    status = pthread_create(&uart_rx_thread, &pAttrs, uartRxThread, NULL);
+    if(status != 0)
+    {
+        UART_PRINT("could not create uart_rx_thread task\n\r");
+        return;
+    }
+
+    status = pthread_create(&cloud_tx_thread, &pAttrs, cloudTxThread, NULL);
+    if(status != 0)
+    {
+        UART_PRINT("could not create cloud_tx_thread task\n\r");
+        return;
+    }
+
+    */
+
     /* Displays the Application Banner */
     LocalTime_displayBanner();
 
     /* initialize the device */
     mode = LocalTime_initDevice();
-
+/*
     if (mode == ROLE_STA)
     {
+    */
         LocalTime_connect();
+/*
     }
     else if (mode == ROLE_AP)
     {
@@ -601,16 +795,72 @@ void mainThread(void *pvParameters)
         sl_WlanGet(SL_WLAN_CFG_AP_ID, &config_opt , &len, ssid);
         UART_PRINT("AP mode SSID %s\n\r",ssid);
     }
+*/
 
      while (1)
      {
+         UART_PRINT("uartRxThread ready to recive \n\r");
+
+         len=GetString(message,sizeof(message));
+         if(len>0)
+         {
+             UART_PRINT("uartRxThread(%d) recived: %s\n\r",len,message);
+
+
+            /* statusCode = HTTPClient_connect(httpClientHandle,HOSTNAME,&httpClientSecParams,0);
+             if (statusCode < 0) {
+                 UART_PRINT("httpTask(%d): connect failed\n\r", statusCode);
+             }*/
+
+             statusCode = HTTPClient_sendRequest(httpClientHandle,HTTP_METHOD_POST,ABS_URI,message,strlen(message),0);
+
+//             statusCode = HTTPClient_sendRequest(httpClientHandle,HTTP_METHOD_POST,REQUEST_URI,message,strlen(message),0);
+             if (statusCode < 0) {
+                 UART_PRINT("httpTask(%d): send failed\n\r", statusCode);
+             }
+
+             if (statusCode != HTTP_SC_OK) {
+                 UART_PRINT("httpTask(%d): cannot get status\n\r", statusCode);
+             }
+
+             UART_PRINT("HTTP Response Status Code: %d\n\r", statusCode);
+
+             bool moreDataFlag = false;
+
+             do {
+                 statusCode = HTTPClient_readResponseBody(httpClientHandle, message, sizeof(message), &moreDataFlag);
+                 if (statusCode < 0) {
+                     UART_PRINT("httpTask(%d): response body processing failed\n\r", statusCode);
+                 }
+                 len += statusCode;
+             }while (moreDataFlag);
+
+             UART_PRINT(message);
+             UART_PRINT("\n\r");
+
+
+             /*msg.len=len;
+             if(Mailbox_post((Mailbox_Handle)pvParameters, &msg, BIOS_NO_WAIT))
+             {
+                 UART_PRINT("uartRxThread(%d) mailbox success: %d- %s\n\r",msg.len,msg.id,msg.val);
+             }
+             else
+             {
+                 UART_PRINT("uartRxThread(%d) mailbox failed: %d- %s\n\r",msg.len,msg.id,msg.val);
+             }
+             msg.id++;
+             */
+
+         }
+     }
+     /*
          if ((mode == ROLE_STA) && (!LOCALTIME_IS_CONNECTED(LocalTime_CB.status)))
          {
              LocalTime_connect();
          }
          else
          {
-             /* Set Desired use case */
+             // Set Desired use case
              LocalTime_setUseCase();
              switch (LocalTime_CB.useCase)
              {
@@ -646,7 +896,7 @@ void mainThread(void *pvParameters)
                      UART_PRINT("Please enter offset from GMT in minutes:  ");
                      GetCmd(tzsel,sizeof(tzsel));
                      UART_PRINT("\n\r");
-                     /* update time zone */
+                     // update time zone
                      ClockSync_setTimeZone(atoi(tzsel));
 
                  break;
@@ -688,7 +938,9 @@ void mainThread(void *pvParameters)
                  break;
              }
          }
-     }
+    // }
+
+     */
 }
 
 
