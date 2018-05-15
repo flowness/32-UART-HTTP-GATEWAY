@@ -272,8 +272,6 @@ int GetString(char *pcBuffer, unsigned int uiBufLen)
     char    cChar;
     int     iLen = 0;
 
-
-
     iLen = 0;
 
     //
@@ -282,6 +280,7 @@ int GetString(char *pcBuffer, unsigned int uiBufLen)
     while(1)
     {
         UART_readPolling(dataUartHandle, &cChar, 1);
+        //if(iLen%16==0) UART_PRINT(" %c(%d): %s \r\n",cChar,iLen,pcBuffer);
         *(pcBuffer + iLen) = cChar;
         iLen++;
 
@@ -298,11 +297,12 @@ int GetString(char *pcBuffer, unsigned int uiBufLen)
         //
         if(cChar == '\0')
         {
+            if (*pcBuffer!='{') return -1;
             break;
         }
 
     }
-
+    //if (iLen>160) return -1;
     return iLen;
 }
 

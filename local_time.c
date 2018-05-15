@@ -62,10 +62,15 @@
 #define LOCALTIME_SECURITY_TYPE                         SL_WLAN_SEC_TYPE_WPA_WPA2   // Security type could be SL_WLAN_SEC_TYPE_WPA_WPA2
 #define LOCALTIME_SECURITY_KEY                          "2a6c1234"                  // Password of the secured AP
 */
-
+/*
 #define LOCALTIME_SSID_NAME                             "Paradox-rnd_2.4"                // AP SSID
 #define LOCALTIME_SECURITY_TYPE                         SL_WLAN_SEC_TYPE_WPA_WPA2   // Security type could be SL_WLAN_SEC_TYPE_WPA_WPA2
 #define LOCALTIME_SECURITY_KEY                          "P@r@d0xx"                  // Password of the secured AP
+*/
+
+#define LOCALTIME_SSID_NAME                             "BEZEQINT-2599"                // AP SSID
+#define LOCALTIME_SECURITY_TYPE                         SL_WLAN_SEC_TYPE_WPA_WPA2   // Security type could be SL_WLAN_SEC_TYPE_WPA_WPA2
+#define LOCALTIME_SECURITY_KEY                          "9692217671"                  // Password of the secured AP
 
 
 //#define HOSTNAME "https://yg8rvhiiq0.execute-api.eu-west-1.amazonaws.com"
@@ -800,12 +805,14 @@ void mainThread(void *pvParameters)
      while (1)
      {
          UART_PRINT("uartRxThread ready to recive \n\r");
-
+         sl_Memset(message,0,512);
          len=GetString(message,sizeof(message));
+         //UART_PRINT("uartRxThread(%d) recived: %s\n\r",len,message);
+
          if(len>0)
          {
-             UART_PRINT("uartRxThread(%d) recived: %s\n\r",len,message);
-
+             //UART_PRINT("\r\n\r\n\r\n");
+             UART_PRINT("uartRxThread(%d) correct string: %s\n\r",len,message);
 
             /* statusCode = HTTPClient_connect(httpClientHandle,HOSTNAME,&httpClientSecParams,0);
              if (statusCode < 0) {
@@ -836,7 +843,7 @@ void mainThread(void *pvParameters)
              }while (moreDataFlag);
 
              UART_PRINT(message);
-             UART_PRINT("\n\r");
+             //UART_PRINT("\r\n\r\n\r\n");
 
 
              /*msg.len=len;
