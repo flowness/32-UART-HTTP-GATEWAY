@@ -45,6 +45,8 @@
 #ifndef __CC3220SF_LAUNCHXL_H
 #define __CC3220SF_LAUNCHXL_H
 
+#define __SF_DEBUG__
+
 #ifdef __cplusplus
 extern "C" {
 #endif

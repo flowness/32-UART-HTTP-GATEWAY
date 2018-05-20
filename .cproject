@@ -97,6 +97,12 @@
 									<listOptionValue builtIn="false" value="ti/devices/cc32xx/driverlib/ccs/Release/driverlib.a"/>
 									<listOptionValue builtIn="false" value="libc.a"/>
 								</option>
+								<option id="com.ti.ccstudio.buildDefinitions.TMS470_18.1.linkerID.RETAIN.1275105860" superClass="com.ti.ccstudio.buildDefinitions.TMS470_18.1.linkerID.RETAIN" valueType="stringList">
+									<listOptionValue builtIn="false" value="ulDebugHeader"/>
+								</option>
+								<option id="com.ti.ccstudio.buildDefinitions.TMS470_18.1.linkerID.OTHER_FLAGS.164880271" superClass="com.ti.ccstudio.buildDefinitions.TMS470_18.1.linkerID.OTHER_FLAGS" valueType="stringList">
+									<listOptionValue builtIn="false" value=""/>
+								</option>
 								<inputType id="com.ti.ccstudio.buildDefinitions.TMS470_18.1.exeLinker.inputType__CMD_SRCS.1204412752" name="Linker Command Files" superClass="com.ti.ccstudio.buildDefinitions.TMS470_18.1.exeLinker.inputType__CMD_SRCS"/>
 								<inputType id="com.ti.ccstudio.buildDefinitions.TMS470_18.1.exeLinker.inputType__CMD2_SRCS.2077662924" name="Linker Command Files" superClass="com.ti.ccstudio.buildDefinitions.TMS470_18.1.exeLinker.inputType__CMD2_SRCS"/>
 								<inputType id="com.ti.ccstudio.buildDefinitions.TMS470_18.1.exeLinker.inputType__GEN_CMDS.1497943774" name="Generated Linker Command Files" superClass="com.ti.ccstudio.buildDefinitions.TMS470_18.1.exeLinker.inputType__GEN_CMDS"/>
