@@ -48,6 +48,10 @@
 #include <ti/net/utils/clock_sync.h>
 #include <ti/drivers/net/wifi/slnetifwifi.h>
 #include <ti/net/http/httpclient.h>
+#include <ti/drivers/Watchdog.h>
+
+Watchdog_Handle watchdogHandle;
+
 
 #include "uart_term.h"
 #include "pthread.h"
@@ -57,21 +61,20 @@
 //*****************************************************************************
 #define LOCALTIME_APPLICATION_NAME                      "Local Time"
 #define LOCALTIME_APPLICATION_VERSION                   "1.0.0"
-/*
-#define LOCALTIME_SSID_NAME                             "225_732a6c"                // AP SSID
+
+#define LOCALTIME_SSID_NAME                             "AquaSafe"                // AP SSID
 #define LOCALTIME_SECURITY_TYPE                         SL_WLAN_SEC_TYPE_WPA_WPA2   // Security type could be SL_WLAN_SEC_TYPE_WPA_WPA2
-#define LOCALTIME_SECURITY_KEY                          "2a6c1234"                  // Password of the secured AP
-*/
+#define LOCALTIME_SECURITY_KEY                          "Paradox1"                  // Password of the secured AP
+
 /*
 #define LOCALTIME_SSID_NAME                             "Paradox-rnd_2.4"                // AP SSID
 #define LOCALTIME_SECURITY_TYPE                         SL_WLAN_SEC_TYPE_WPA_WPA2   // Security type could be SL_WLAN_SEC_TYPE_WPA_WPA2
 #define LOCALTIME_SECURITY_KEY                          "P@r@d0xx"                  // Password of the secured AP
-*/
 
 #define LOCALTIME_SSID_NAME                             "BEZEQINT-2599"                // AP SSID
 #define LOCALTIME_SECURITY_TYPE                         SL_WLAN_SEC_TYPE_WPA_WPA2   // Security type could be SL_WLAN_SEC_TYPE_WPA_WPA2
 #define LOCALTIME_SECURITY_KEY                          "9692217671"                  // Password of the secured AP
-
+*/
 
 //#define HOSTNAME "https://yg8rvhiiq0.execute-api.eu-west-1.amazonaws.com"
 //#define REQUEST_URI "/poc/measurement"
@@ -347,10 +350,13 @@ int32_t LocalTime_initDevice(void)
 
     mode = sl_Start(0, 0, 0);
     LOCALTIME_ASSERT_ON_ERROR(mode);
-    sl_WlanSetMode(ROLE_STA);
-    sl_Stop(0);
-    mode = sl_Start(NULL,NULL,NULL);
-    LOCALTIME_ASSERT_ON_ERROR(mode);
+    if (mode!=0)
+    {
+        sl_WlanSetMode(ROLE_STA);
+        sl_Stop(0);
+        mode = sl_Start(NULL,NULL,NULL);
+        LOCALTIME_ASSERT_ON_ERROR(mode);
+    }
 
     if (mode == 0)
     {
@@ -680,6 +686,7 @@ void mainThread(void *pvParameters)
     int32_t             mode;
     struct sched_param  priParam;
     struct tm           netTime;
+    Watchdog_Params params;
 
     int len=0;
     char message[512]={0};
@@ -705,6 +712,17 @@ void mainThread(void *pvParameters)
 
     GPIO_init();
     SPI_init();
+    Watchdog_init();
+
+    Watchdog_Params_init(&params);
+    params.resetMode=Watchdog_RESET_ON;
+
+    //remove comment block to enable watchdog
+/*
+    watchdogHandle = Watchdog_open(Board_WATCHDOG0, &params);
+    uint32_t tickValue = Watchdog_convertMsToTicks(watchdogHandle, 20000);
+    Watchdog_setReload(watchdogHandle, tickValue);
+*/
 
     /* Configure the UART */
     InitTerm();
@@ -828,6 +846,11 @@ void mainThread(void *pvParameters)
 
              if (statusCode != HTTP_SC_OK) {
                  UART_PRINT("httpTask(%d): cannot get status\n\r", statusCode);
+             }
+
+             if(statusCode == HTTP_SC_OK)
+             {
+                 Watchdog_clear(watchdogHandle);
              }
 
              UART_PRINT("HTTP Response Status Code: %d\n\r", statusCode);
