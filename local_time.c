@@ -34,9 +34,12 @@
 // includes
 //*****************************************************************************
 #include <string.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <unistd.h>
+#include "ti/devices/cc32xx/inc/hw_types.h"
+#include <ti/devices/cc32xx/driverlib/prcm.h>
 
 
 /* TI-DRIVERS Header files */
@@ -62,9 +65,9 @@ Watchdog_Handle watchdogHandle;
 #define LOCALTIME_APPLICATION_NAME                      "Local Time"
 #define LOCALTIME_APPLICATION_VERSION                   "1.0.0"
 
-#define LOCALTIME_SSID_NAME                             "AquaSafe"                // AP SSID
+#define LOCALTIME_SSID_NAME                             "Azar"                // AP SSID
 #define LOCALTIME_SECURITY_TYPE                         SL_WLAN_SEC_TYPE_WPA_WPA2   // Security type could be SL_WLAN_SEC_TYPE_WPA_WPA2
-#define LOCALTIME_SECURITY_KEY                          "Paradox1"                  // Password of the secured AP
+#define LOCALTIME_SECURITY_KEY                          "azarhomenetwork"                  // Password of the secured AP
 
 /*
 #define LOCALTIME_SSID_NAME                             "Paradox-rnd_2.4"                // AP SSID
@@ -86,6 +89,8 @@ Watchdog_Handle watchdogHandle;
 
 //#define ABS_URI "https://httpbin.org/post"
 #define ABS_URI "https://yg8rvhiiq0.execute-api.eu-west-1.amazonaws.com/poc/measurement"
+#define ERR_URI "https://yg8rvhiiq0.execute-api.eu-west-1.amazonaws.com/poc/error"
+
 
 #define LOCALTIME_SLNET_IF_WIFI_PRIO                    (5)
 
@@ -687,9 +692,12 @@ void mainThread(void *pvParameters)
     struct sched_param  priParam;
     struct tm           netTime;
     Watchdog_Params params;
+    int errCode = 0;
 
     int len=0;
     char message[512]={0};
+    char errMessage[512]={0};
+
     /* Print Application name */
     HTTPClient_extSecParams httpClientSecParams;
 /*
@@ -712,17 +720,36 @@ void mainThread(void *pvParameters)
 
     GPIO_init();
     SPI_init();
-    Watchdog_init();
 
-    Watchdog_Params_init(&params);
-    params.resetMode=Watchdog_RESET_ON;
+    // Determine cause of reset
+    //UART_PRINT("[SYS] Reset cause is ");
+    _u32 resetCause = PRCMSysResetCauseGet();
+    _u32 wakeCause;
 
-    //remove comment block to enable watchdog
-/*
-    watchdogHandle = Watchdog_open(Board_WATCHDOG0, &params);
-    uint32_t tickValue = Watchdog_convertMsToTicks(watchdogHandle, 20000);
-    Watchdog_setReload(watchdogHandle, tickValue);
-*/
+    switch (resetCause)
+    {
+    case PRCM_POWER_ON: //UART_PRINT("Powered ON\r\n");
+        errCode = -1;
+        sprintf(errMessage, "{\"SN\":\"AzarHome\", \"errCode\": \"%d\", \"errDesc\": \"Standard Power ON\"}", errCode);
+         break;
+    case PRCM_LPDS_EXIT:
+    case PRCM_CORE_RESET:
+    case PRCM_MCU_RESET:
+    case PRCM_WDT_RESET:
+    case PRCM_SOC_RESET:
+    case PRCM_HIB_EXIT:
+        wakeCause = PRCMHibernateWakeupCauseGet();
+        //UART_PRINT("  Sysreset = %lu\tWakeup = %lu\r\n", resetCause, wakeCause);
+        errCode = 1001;
+        sprintf(errMessage, "{\"SN\": \"AzarHome\", \"errCode\": \"%d\", \"errDesc\": \"Sysreset = %lu, Wakeup = %lu\"}", errCode, resetCause, wakeCause);
+        break;
+    }
+
+    // End determine cause of reset
+
+
+
+
 
     /* Configure the UART */
     InitTerm();
@@ -819,6 +846,27 @@ void mainThread(void *pvParameters)
         UART_PRINT("AP mode SSID %s\n\r",ssid);
     }
 */
+
+      // un-comment the following lines in order to activate reset cause logged to the cloud
+      // un-commenting theselines causes the system to continuesly reset  by watchdog.  need to FIX
+//     if (errCode != 0)
+//     {
+//         printf(errMessage);
+//         printf("\n\r");
+//         statusCode = HTTPClient_sendRequest(httpClientHandle,HTTP_METHOD_POST,ERR_URI,errMessage,strlen(errMessage),0);
+//     }
+
+
+     Watchdog_init();
+
+     Watchdog_Params_init(&params);
+     params.resetMode=Watchdog_RESET_ON;
+
+     //remove comment block to enable watchdog
+
+     watchdogHandle = Watchdog_open(Board_WATCHDOG0, &params);
+     uint32_t tickValue = Watchdog_convertMsToTicks(watchdogHandle, 20000);
+     Watchdog_setReload(watchdogHandle, tickValue);
 
      while (1)
      {
