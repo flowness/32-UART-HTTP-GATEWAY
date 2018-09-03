@@ -67,7 +67,7 @@ typedef struct MailboxMsgObj {
 
 /* This buffer is not directly accessed by the application */
 MailboxMsgObj mailboxBuffer[NUMMSGS];
-static Mailbox_Handle mbxHandle;
+//static Mailbox_Handle mbxHandle;
 
 Mailbox_Struct mbxStruct;
 /*

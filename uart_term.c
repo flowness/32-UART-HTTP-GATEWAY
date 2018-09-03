@@ -190,7 +190,7 @@ int GetCmd(char *pcBuffer, unsigned int uiBufLen)
     int     iLen = 0;
 
 
-    (uartHandle, &cChar, 1);
+    UART_readPolling(uartHandle, &cChar, 1);
 
     iLen = 0;
 

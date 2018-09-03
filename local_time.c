@@ -35,6 +35,8 @@
 //*****************************************************************************
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
+
 #include <stdarg.h>
 #include <unistd.h>
 
@@ -49,18 +51,50 @@
 #include <ti/drivers/net/wifi/slnetifwifi.h>
 #include <ti/net/http/httpclient.h>
 #include <ti/drivers/Watchdog.h>
+#include <ti/utils/json/json.h>
+
 
 Watchdog_Handle watchdogHandle;
+Json_Handle templateHandle;
+Json_Handle templateDebugHandle;
+
+Json_Handle jsonObjHandle;
+Json_Handle jsonDebugObjHandle;
 
 
 #include "uart_term.h"
 #include "pthread.h"
 
+
+  char *templatestr =   "{"
+                            "\"SN\":string,"
+                            "\"TimeStamp\":uint32,"
+                            "\"Count\":uint32,"
+                            "\"FlowRaw\":int32,"
+                            "\"Flow\":int32,"
+                            "\"Volume\":int32,"
+                            "\"CRC\":uint32,"
+                            "\"Debug\": raw"
+/*                            "{"
+                                "\"MSPCount\":uint32"
+                            "}"
+ */                       "}";
+
+  char *templateDebugstr =  "{"
+                                "\"MSPCount\":uint32,"
+                                "\"CCCount\":uint32,"
+                                "\"CCError\":raw"
+                            "}";
+
+#define MAX_ERROR_ARRAY 5
+  unsigned long TransmitionCount=0;
+  int errorArray[MAX_ERROR_ARRAY][2];
+
 //*****************************************************************************
 // defines
 //*****************************************************************************
 #define LOCALTIME_APPLICATION_NAME                      "Local Time"
-#define LOCALTIME_APPLICATION_VERSION                   "1.0.0"
+#define LOCALTIME_APPLICATION_VERSION                   "1.0.1"
 
 #define LOCALTIME_SSID_NAME                             "AquaSafe"                // AP SSID
 #define LOCALTIME_SECURITY_TYPE                         SL_WLAN_SEC_TYPE_WPA_WPA2   // Security type could be SL_WLAN_SEC_TYPE_WPA_WPA2
@@ -105,7 +139,7 @@ Watchdog_Handle watchdogHandle;
 {\
      if(error_code < 0) \
      {\
-         UART_PRINT("error %d\r\n",error_code);\
+         UART_PRINT("error(%d) %d\r\n",__LINE__,error_code);\
          return error_code;\
      }\
 }
@@ -209,6 +243,7 @@ void SimpleLinkWlanEventHandler(SlWlanEvent_t *pWlanEvent)
         case SL_WLAN_EVENT_DISCONNECT:
             LOCALTIME_CLR_STATUS_BIT(LocalTime_CB.status, STATUS_BIT_CONNECTION);
             LOCALTIME_CLR_STATUS_BIT(LocalTime_CB.status, STATUS_BIT_IP_ACQUIRED);
+            UART_PRINT("STA Disconnected from AP");
 
             break;
 
@@ -322,6 +357,284 @@ void SimpleLinkGeneralEventHandler(SlDeviceEvent_t *pDevEvent)
 //*****************************************************************************
 void SimpleLinkSockEventHandler(SlSockEvent_t *pSock)
 {
+}
+
+
+int16_t createTemplate(void)
+{
+    int16_t retVal;
+
+    retVal = Json_createTemplate(&templateHandle, templatestr, strlen(templatestr));
+
+    if(retVal < 0)
+    {
+        UART_PRINT("Error: %d  , Couldn't create template \n\r",retVal);
+    }
+    else
+    {
+        UART_PRINT("Template object created successfully. \n\n\r");
+    }
+
+
+    retVal = Json_createTemplate(&templateDebugHandle, templateDebugstr, strlen(templateDebugstr));
+
+    if(retVal < 0)
+    {
+        UART_PRINT("Error: %d  , Couldn't create template \n\r",retVal);
+    }
+    else
+    {
+        UART_PRINT("Template object created successfully. \n\n\r");
+    }
+    return retVal;
+
+
+
+
+}
+
+int16_t createObject(void)
+{
+    int16_t retVal;
+
+    retVal = Json_createObject(&jsonObjHandle,templateHandle,512);
+    if(retVal < 0)
+    {
+        UART_PRINT("Error: %d  , Couldn't create json object \n\r", retVal);
+    }
+    else
+    {
+        UART_PRINT("Json object created successfully. \n\n\r");
+    }
+
+    retVal = Json_createObject(&jsonDebugObjHandle,templateDebugHandle,128);
+    if(retVal < 0)
+    {
+        UART_PRINT("Error: %d  , Couldn't create json object \n\r", retVal);
+    }
+    else
+    {
+        UART_PRINT("Json object created successfully. \n\n\r");
+    }
+    return retVal;
+
+}
+
+int16_t parse(char* jsonBuffer)
+{
+    int16_t retVal;
+
+    retVal =
+        Json_parse(jsonObjHandle,jsonBuffer, strlen(jsonBuffer));
+
+    if(retVal < 0)
+    {
+        UART_PRINT("Error: %d  , Couldn't parse the Json file \n\r", retVal);
+    }
+    else
+    {
+        UART_PRINT("Json was parsed successfully \n\r");
+    }
+    return retVal;
+}
+
+char *TimeStamp_k =  "\"TimeStamp\"";
+char *Count_k =  "\"Count\"";
+char *FlowRaw_k =  "\"FlowRaw\"";
+char *Flow_k =  "\"Flow\"";
+char *Volume_k =  "\"Volume\"";
+char *CRC_k =  "\"CRC\"";
+char *Debug_k =  "\"Debug\"";
+char *Debug_CCCount_k =  "\"CCCount\"";
+char *Debug_CCError_k =  "\"CCError\"";
+char errorArrayString[MAX_ERROR_ARRAY*16] = {0};//"[[0],[0]],[[1],[2]]";
+
+int16_t AdjustTransmitionCount(char* jsonBuffer)
+{
+    int16_t retVal;
+    uint16_t size=128;
+    char Debug_v[128]={0};
+
+    retVal = Json_getValue(jsonObjHandle,Debug_k,&Debug_v,&size);
+    if(retVal < 0)
+    {
+        UART_PRINT("Error: %d  , Couldn't get the Json Debug_k \n\r", retVal);
+        return retVal;
+    }
+    else
+    {
+        UART_PRINT("got Json Debug successfully\n\r");
+        retVal = Json_parse(jsonDebugObjHandle,Debug_v, strlen(Debug_v));
+        if(retVal < 0)
+        {
+            UART_PRINT("Error: %d  , Couldn't parse the Debug Json file \n\r", retVal);
+        }
+        else
+        {
+            UART_PRINT("Debug Json was parsed successfully \n\r");
+            size=sizeof(TransmitionCount);
+            retVal = Json_setValue(jsonDebugObjHandle, Debug_CCCount_k, &TransmitionCount, size);
+            if(retVal < 0)
+            {
+                UART_PRINT("Error: %d  , Couldn't set the Debug Json CCCount\n\r", retVal);
+            }
+            else
+            {
+                UART_PRINT("Debug Json CCCount was set successfully with %d\n\r",TransmitionCount);
+                char *temperrorArrayString=errorArrayString;
+                temperrorArrayString+=sprintf(temperrorArrayString,"[");
+                int i;
+                for(i=0;i<MAX_ERROR_ARRAY;i++)
+                {
+
+                    if(errorArray[i][0] == 0)
+                    {
+                        if(i!=0)
+                        {
+                            temperrorArrayString--;
+                            *temperrorArrayString=0;
+                        }
+                        break;
+                    }
+                    temperrorArrayString+=sprintf(temperrorArrayString,"[%i,%i],",errorArray[i][0],errorArray[i][1]);
+                }
+                temperrorArrayString+=sprintf(temperrorArrayString,"]");
+                retVal = Json_setValue(jsonDebugObjHandle, Debug_CCError_k, errorArrayString, strlen(errorArrayString));
+                if(retVal < 0)
+                {
+                    UART_PRINT("Error: %d  , Couldn't set the Debug Json CCError\n\r", retVal);
+                }
+                else
+                {
+                    UART_PRINT("Debug Json CCError was set successfully: %s \n\r",errorArrayString);
+                    size=128;
+                    retVal = Json_build(jsonDebugObjHandle, Debug_v, &size);
+                    if(retVal < 0)
+                    {
+                        UART_PRINT("Error: %d  , Couldn't build Debug Json\n\r", retVal);
+                    }
+                    else
+                    {
+                        UART_PRINT("Debug Json was build successfully \n\r");
+                        retVal = Json_setValue(jsonObjHandle, Debug_k, Debug_v, size);
+                        if(retVal < 0)
+                        {
+                            UART_PRINT("Error: %d  , Couldn't set the Debug Json with CCCount\n\r", retVal);
+                        }
+                        else
+                        {
+                            UART_PRINT("Debug Json was set successfully in JSON\n\r");
+                            size=512;
+                            retVal = Json_build(jsonObjHandle, jsonBuffer, &size);
+                            if(retVal < 0)
+                            {
+                                UART_PRINT("Error: %d  , Couldn't build Debug Json\n\r", retVal);
+                            }
+                            else
+                            {
+                                UART_PRINT("Json was build successfully\n\r");
+                            }
+                        }
+                    }
+                }
+            }
+
+        }
+    }
+    return retVal;
+}
+
+int16_t CheckCRC()
+{
+    int16_t retVal;
+    uint32_t TimeStamp_v=0;
+    uint32_t Count_v=0;
+    int32_t FlowRaw_v=0;
+    int32_t Flow_v=0;
+    int32_t Volume_v=0;
+
+    uint16_t size64=sizeof(TimeStamp_v);
+    uint32_t CRC_v=0;
+
+    retVal = Json_getValue(jsonObjHandle,TimeStamp_k,&TimeStamp_v,&size64);
+    if(retVal < 0)
+    {
+        UART_PRINT("Error: %d  , Couldn't get the Json TimeStamp_k \n\r", retVal);
+        return retVal;
+    }
+    else
+    {
+        //UART_PRINT("got Json TimeStamp successfully %lu \n\n\r",TimeStamp_v);
+    }
+
+    retVal = Json_getValue(jsonObjHandle,CRC_k,&CRC_v,&size64);
+    if(retVal < 0)
+    {
+        UART_PRINT("Error: %d  , Couldn't get the Json CRC_k \n\r", retVal);
+        return retVal;
+    }
+    else
+    {
+        //UART_PRINT("got Json CRC successfully %lu \n\n\r",CRC_v);
+    }
+
+    retVal = Json_getValue(jsonObjHandle,Count_k,&Count_v,&size64);
+    if(retVal < 0)
+    {
+        UART_PRINT("Error: %d  , Couldn't get the Json Count_k \n\r", retVal);
+        return retVal;
+    }
+    else
+    {
+        //UART_PRINT("got Json count successfully %d \n\n\r",Count_v);
+    }
+
+    retVal = Json_getValue(jsonObjHandle,FlowRaw_k,&FlowRaw_v,&size64);
+    if(retVal < 0)
+    {
+        UART_PRINT("Error: %d  , Couldn't get the Json FlowRaw_k \n\r", retVal);
+        return retVal;
+    }
+    else
+    {
+        //UART_PRINT("got Json FlowRaw successfully %d \n\n\r",FlowRaw_v);
+    }
+
+    retVal = Json_getValue(jsonObjHandle,Flow_k,&Flow_v,&size64);
+    if(retVal < 0)
+    {
+        UART_PRINT("Error: %d  , Couldn't get the Json Flow_k \n\r", retVal);
+        return retVal;
+    }
+    else
+    {
+       // UART_PRINT("got Json Flow successfully %d \n\n\r",Flow_v);
+    }
+
+    retVal = Json_getValue(jsonObjHandle,Volume_k,&Volume_v,&size64);
+    if(retVal < 0)
+    {
+        UART_PRINT("Error: %d  , Couldn't get the Json Volume_k \n\r", retVal);
+        return retVal;
+    }
+    else
+    {
+        //UART_PRINT("got Json volume successfully %d \n\n\r",Volume_v);
+    }
+
+    uint32_t CRC_calc=TimeStamp_v^Count_v^(int32_t)FlowRaw_v^(int32_t)Flow_v^(int32_t)Volume_v;
+    if(CRC_v==CRC_calc)
+    {
+        UART_PRINT("got CRC successfully \n\r");
+        return 0;
+    }
+    else
+    {
+        UART_PRINT("Error CRC isn't correct expected: %lu but got %lu \n\r", CRC_v,CRC_calc);
+        return -1;
+    }
+
+
 }
 
 
@@ -683,25 +996,29 @@ void mainThread(void *pvParameters)
     int32_t             status = 0;
     pthread_t           spawn_thread = (pthread_t)NULL;
     pthread_attr_t      pAttrs_spawn;
-    int32_t             mode;
     struct sched_param  priParam;
-    struct tm           netTime;
     Watchdog_Params params;
 
     int len=0;
     char message[512]={0};
     /* Print Application name */
-    HTTPClient_extSecParams httpClientSecParams;
 /*
-    pthread_t           uart_rx_thread = (pthread_t)NULL;
-    //pthread_t           cloud_tx_thread = (pthread_t)NULL;
-    pthread_attr_t      pAttrs;
-    int                 detachState;
-    uint8_t             ssid[33];
-    uint16_t            len = 33;
-    uint16_t            config_opt = SL_WLAN_AP_OPT_SSID;
-    char                tzsel[5];
+ *     HTTPClient_extSecParams httpClientSecParams;
+ *     int32_t             mode;
+ *     struct tm           netTime;
+ *
 */
+
+    /*
+        pthread_t           uart_rx_thread = (pthread_t)NULL;
+        //pthread_t           cloud_tx_thread = (pthread_t)NULL;
+        pthread_attr_t      pAttrs;
+        int                 detachState;
+        uint8_t             ssid[33];
+        uint16_t            len = 33;
+        uint16_t            config_opt = SL_WLAN_AP_OPT_SSID;
+        char                tzsel[5];
+     */
 
     // Initialize SlNetSock layer with CC3x20 interface
     SlNetIf_init(0);
@@ -712,17 +1029,19 @@ void mainThread(void *pvParameters)
 
     GPIO_init();
     SPI_init();
-    Watchdog_init();
+
+
+  Watchdog_init();
 
     Watchdog_Params_init(&params);
     params.resetMode=Watchdog_RESET_ON;
 
     //remove comment block to enable watchdog
-/*
+
     watchdogHandle = Watchdog_open(Board_WATCHDOG0, &params);
     uint32_t tickValue = Watchdog_convertMsToTicks(watchdogHandle, 20000);
     Watchdog_setReload(watchdogHandle, tickValue);
-*/
+
 
     /* Configure the UART */
     InitTerm();
@@ -747,11 +1066,11 @@ void mainThread(void *pvParameters)
         return;
     }
 
-
+/*
     httpClientSecParams.rootCa = "dst-root-ca-x3.der"; //"dummy-ca-cert.der";
     httpClientSecParams.clientCert = NULL;
     httpClientSecParams.privateKey = NULL;
-
+*/
     HTTPClient_Handle httpClientHandle;
     int16_t statusCode;
     httpClientHandle = HTTPClient_create(&statusCode,0);
@@ -764,213 +1083,104 @@ void mainThread(void *pvParameters)
     if (statusCode < 0) {
         UART_PRINT("httpTask(%d): setting request header failed", statusCode);
     }
-/*
-    // Set priority and stack size attributes
-    pthread_attr_init(&pAttrs);
-    priParam.sched_priority = 8;
-
-    detachState = PTHREAD_CREATE_DETACHED;
-    status = pthread_attr_setdetachstate(&pAttrs, detachState);
-    if (status != 0) {
-        // pthread_attr_setdetachstate() failed
-        while (1);
-    }
-
-    pthread_attr_setschedparam(&pAttrs, &priParam);
-
-    status |= pthread_attr_setstacksize(&pAttrs, LOCALTIME_SPAWN_STACK_SIZE);
-    if (status != 0) {
-        // pthread_attr_setstacksize() failed
-        while (1);
-    }
-
-    status = pthread_create(&uart_rx_thread, &pAttrs, uartRxThread, NULL);
-    if(status != 0)
-    {
-        UART_PRINT("could not create uart_rx_thread task\n\r");
-        return;
-    }
-
-    status = pthread_create(&cloud_tx_thread, &pAttrs, cloudTxThread, NULL);
-    if(status != 0)
-    {
-        UART_PRINT("could not create cloud_tx_thread task\n\r");
-        return;
-    }
-
-    */
 
     /* Displays the Application Banner */
     LocalTime_displayBanner();
 
     /* initialize the device */
-    mode = LocalTime_initDevice();
-/*
-    if (mode == ROLE_STA)
-    {
-    */
-        LocalTime_connect();
-/*
-    }
-    else if (mode == ROLE_AP)
-    {
-        sl_Memset(ssid,0,33);
-        sl_WlanGet(SL_WLAN_CFG_AP_ID, &config_opt , &len, ssid);
-        UART_PRINT("AP mode SSID %s\n\r",ssid);
-    }
-*/
+    LocalTime_initDevice();
+
+    LocalTime_connect();
+
+     createTemplate();
+     createObject();
+     int i;
+     for(i=0;i<MAX_ERROR_ARRAY;i++)
+     {
+         errorArray[i][0]=0;
+         errorArray[i][1]=0;
+     }
 
      while (1)
      {
-         UART_PRINT("uartRxThread ready to recive \n\r");
+         UART_PRINT("\n\ruartRxThread ready to recive \n\r");
          sl_Memset(message,0,512);
          len=GetString(message,sizeof(message));
-         //UART_PRINT("uartRxThread(%d) recived: %s\n\r",len,message);
 
          if(len>0)
          {
-             //UART_PRINT("\r\n\r\n\r\n");
-             UART_PRINT("uartRxThread(%d) correct string: %s\n\r",len,message);
+             UART_PRINT("uartRxThread(%d) string recived \n\r",len);
 
-            /* statusCode = HTTPClient_connect(httpClientHandle,HOSTNAME,&httpClientSecParams,0);
-             if (statusCode < 0) {
-                 UART_PRINT("httpTask(%d): connect failed\n\r", statusCode);
-             }*/
-
-             statusCode = HTTPClient_sendRequest(httpClientHandle,HTTP_METHOD_POST,ABS_URI,message,strlen(message),0);
-
-//             statusCode = HTTPClient_sendRequest(httpClientHandle,HTTP_METHOD_POST,REQUEST_URI,message,strlen(message),0);
-             if (statusCode < 0) {
-                 UART_PRINT("httpTask(%d): send failed\n\r", statusCode);
-             }
-
-             if (statusCode != HTTP_SC_OK) {
-                 UART_PRINT("httpTask(%d): cannot get status\n\r", statusCode);
-             }
-
-             if(statusCode == HTTP_SC_OK)
+             int16_t retVal=parse(message);
+             if (retVal>=0)
              {
-                 Watchdog_clear(watchdogHandle);
-             }
 
-             UART_PRINT("HTTP Response Status Code: %d\n\r", statusCode);
+                 retVal=CheckCRC();
+                 if (retVal>=0)
+                 {
+                     AdjustTransmitionCount(message);
 
-             bool moreDataFlag = false;
+                     statusCode = HTTPClient_sendRequest(httpClientHandle,HTTP_METHOD_POST,ABS_URI,message,strlen(message),0);
 
-             do {
-                 statusCode = HTTPClient_readResponseBody(httpClientHandle, message, sizeof(message), &moreDataFlag);
-                 if (statusCode < 0) {
-                     UART_PRINT("httpTask(%d): response body processing failed\n\r", statusCode);
+                     UART_PRINT("HTTP Response Status Code: %d\n\r\n\r", statusCode);
+                     Watchdog_clear(watchdogHandle);
+                     UART_PRINT(message);
+
+                     if(statusCode == HTTP_SC_OK)
+                     {
+                         TransmitionCount++;
+                         for(i=0;i<MAX_ERROR_ARRAY;i++)
+                         {
+                             errorArray[i][0]=0;
+                             errorArray[i][1]=0;
+                         }
+                     }
+                     else
+                     {
+                         for(i=0;i<MAX_ERROR_ARRAY;i++)
+                         {
+                             if(errorArray[i][0] == statusCode)
+                             {
+                                 errorArray[i][1]++;
+                                 break;
+                             }
+                             else if(errorArray[i][0] == 0)
+                             {
+                                 errorArray[i][0]=statusCode;
+                                 errorArray[i][1]++;
+                                 break;
+                             }
+                         }
+
+/*
+                         bool moreDataFlag = false;
+
+                         do {
+                             statusCode = HTTPClient_readResponseBody(httpClientHandle, message, sizeof(message), &moreDataFlag);
+                             if (statusCode < 0) {
+                                 UART_PRINT("httpTask(%d): response body processing failed\n\r", statusCode);
+                             }
+                             else
+                             {
+                                 len += statusCode;
+                                 UART_PRINT(message);
+                             }
+                         }while (moreDataFlag);
+                         UART_PRINT("\r\n\r\n\r\n");
+                         */
+                     }
                  }
-                 len += statusCode;
-             }while (moreDataFlag);
-
-             UART_PRINT(message);
-             //UART_PRINT("\r\n\r\n\r\n");
-
-
-             /*msg.len=len;
-             if(Mailbox_post((Mailbox_Handle)pvParameters, &msg, BIOS_NO_WAIT))
-             {
-                 UART_PRINT("uartRxThread(%d) mailbox success: %d- %s\n\r",msg.len,msg.id,msg.val);
+                 else
+                 {
+                     UART_PRINT("CRC error with message: %s",message);
+                 }
              }
              else
              {
-                 UART_PRINT("uartRxThread(%d) mailbox failed: %d- %s\n\r",msg.len,msg.id,msg.val);
+                 UART_PRINT("Parse error with message: %s",message);
              }
-             msg.id++;
-             */
-
          }
      }
-     /*
-         if ((mode == ROLE_STA) && (!LOCALTIME_IS_CONNECTED(LocalTime_CB.status)))
-         {
-             LocalTime_connect();
-         }
-         else
-         {
-             // Set Desired use case
-             LocalTime_setUseCase();
-             switch (LocalTime_CB.useCase)
-             {
-                 case LocalTime_GetTime:
-                     status = ClockSync_get(&netTime);
-                     if ((status == 0) || (status == CLOCKSYNC_ERROR_INTERVAL))
-                     {
-                         UART_PRINT("Local time = %s\n\r",asctime(&netTime));
-                     }
-                     else
-                     {
-                         UART_PRINT("Error = %d\n\r",status);
-                     }
-
-                 break;
-                 case LocalTime_UpdateTime:
-                     status = ClockSync_update();
-                     if (status == 0)
-                     {
-                         UART_PRINT("Update successful\n\r");
-                     }
-                     else if (status == CLOCKSYNC_ERROR_INTERVAL)
-                     {
-                         UART_PRINT("Min time between updates did not elapse\n\r");
-                     }
-                     else
-                     {
-                         UART_PRINT("Update failed = %d\n\r",status);
-                     }
-                 break;
-
-                 case LocalTime_SetTimezone:
-                     UART_PRINT("Please enter offset from GMT in minutes:  ");
-                     GetCmd(tzsel,sizeof(tzsel));
-                     UART_PRINT("\n\r");
-                     // update time zone
-                     ClockSync_setTimeZone(atoi(tzsel));
-
-                 break;
-
-                 case LocalTime_GetTimezone:
-                     UART_PRINT("Timezone = %d.\n\r",ClockSync_getTimeZone());
-                 break;
-
-                 case LocalTime_SwitchAP:
-                     if (mode == ROLE_AP)
-                     {
-                         UART_PRINT("Device already in AP mode.\n\r");
-                     }
-                     else
-                     {
-                        status = sl_WlanSetMode(ROLE_AP);
-                        if (status >= 0)
-                        {
-                            UART_PRINT("Please reset the device....\n\r");
-                            return;
-                        }
-                     }
-
-                 break;
-                 case LocalTime_SwitchStation:
-                     if (mode == ROLE_STA)
-                     {
-                         UART_PRINT("Device already in Station mode.\n\r");
-                     }
-                     else
-                     {
-                        status = sl_WlanSetMode(ROLE_STA);
-                        if (status >= 0)
-                        {
-                            UART_PRINT("Please reset the device....\n\r");
-                            return;
-                        }
-                     }
-                 break;
-             }
-         }
-    // }
-
-     */
 }
 
 
