@@ -59,13 +59,15 @@ UART_Handle InitTerm(void)
     UART_init();
     UART_Params_init(&uartParams);
 
-    uartParams.writeDataMode    = UART_DATA_BINARY;
-    uartParams.readDataMode     = UART_DATA_BINARY;
+    uartParams.writeDataMode    = UART_DATA_TEXT;
+    uartParams.readDataMode     = UART_DATA_TEXT;
     uartParams.readReturnMode   = UART_RETURN_FULL;
     uartParams.readEcho         = UART_ECHO_OFF;
-    uartParams.baudRate         = 115200;
+    uartParams.baudRate         = 921600;
 
     uartHandle = UART_open(Board_UART1, &uartParams);
+
+    uartParams.baudRate         = 115200;
     dataUartHandle = UART_open(Board_UART0, &uartParams);
 
     /* remove uart receive from LPDS dependency */

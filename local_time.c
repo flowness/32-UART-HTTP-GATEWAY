@@ -83,18 +83,23 @@ Json_Handle jsonDebugObjHandle;
   char *templateDebugstr =  "{"
                                 "\"MSPCount\":uint32,"
                                 "\"CCCount\":uint32,"
-                                "\"CCError\":raw"
+                                "\"CCParseError\":uint32,"
+                                "\"CCPostError\":raw"
                             "}";
 
-#define MAX_ERROR_ARRAY 5
-  unsigned long TransmitionCount=0;
+#define MAX_ERROR_ARRAY 10
+
+unsigned long TransmitionCount=0;
+unsigned long CCParseError=0;
+
+
   int errorArray[MAX_ERROR_ARRAY][2];
 
 //*****************************************************************************
 // defines
 //*****************************************************************************
 #define LOCALTIME_APPLICATION_NAME                      "Local Time"
-#define LOCALTIME_APPLICATION_VERSION                   "1.0.1"
+#define LOCALTIME_APPLICATION_VERSION                   "1.0.2"
 
 #define LOCALTIME_SSID_NAME                             "AquaSafe"                // AP SSID
 #define LOCALTIME_SECURITY_TYPE                         SL_WLAN_SEC_TYPE_WPA_WPA2   // Security type could be SL_WLAN_SEC_TYPE_WPA_WPA2
@@ -213,6 +218,15 @@ void SimpleLinkNetAppRequestMemFreeEventHandler (uint8_t *buffer)
 
 void SimpleLinkNetAppRequestEventHandler (SlNetAppRequest_t *pNetAppRequest, SlNetAppResponse_t *pNetAppResponse)
 {
+    UART_PRINT("SimpleLinkNetAppRequestEventHandler called\r\n");
+
+    if(pNetAppRequest == NULL)
+    {
+        return;
+    }
+
+    UART_PRINT("SimpleLinkNetAppRequestEventHandler called with ID: %d\r\n",pNetAppRequest->AppId);
+
 }
 
 //*****************************************************************************
@@ -226,10 +240,15 @@ void SimpleLinkNetAppRequestEventHandler (SlNetAppRequest_t *pNetAppRequest, SlN
 //*****************************************************************************
 void SimpleLinkWlanEventHandler(SlWlanEvent_t *pWlanEvent)
 {
+
+    UART_PRINT("SimpleLinkWlanEventHandler called\r\n");
+
     if(pWlanEvent == NULL)
     {
         return;
     }
+
+    UART_PRINT("SimpleLinkWlanEventHandler called with ID: %d\r\n",pWlanEvent->Id);
 
      switch(pWlanEvent->Id)
      {
@@ -243,7 +262,7 @@ void SimpleLinkWlanEventHandler(SlWlanEvent_t *pWlanEvent)
         case SL_WLAN_EVENT_DISCONNECT:
             LOCALTIME_CLR_STATUS_BIT(LocalTime_CB.status, STATUS_BIT_CONNECTION);
             LOCALTIME_CLR_STATUS_BIT(LocalTime_CB.status, STATUS_BIT_IP_ACQUIRED);
-            UART_PRINT("STA Disconnected from AP");
+            UART_PRINT("STA Disconnected from AP\r\n");
 
             break;
 
@@ -274,6 +293,14 @@ void SimpleLinkWlanEventHandler(SlWlanEvent_t *pWlanEvent)
 //*****************************************************************************
 void SimpleLinkFatalErrorEventHandler(SlDeviceFatal_t *slFatalErrorEvent)
 {
+    UART_PRINT("SimpleLinkFatalErrorEventHandler called\r\n");
+
+    if(slFatalErrorEvent == NULL)
+    {
+        return;
+    }
+    UART_PRINT("SimpleLinkFatalErrorEventHandler called with ID: %d\r\n",slFatalErrorEvent->Id);
+
 }
 
 //*****************************************************************************
@@ -288,10 +315,13 @@ void SimpleLinkFatalErrorEventHandler(SlDeviceFatal_t *slFatalErrorEvent)
 //*****************************************************************************
 void SimpleLinkNetAppEventHandler(SlNetAppEvent_t *pNetAppEvent)
 {
+    UART_PRINT("SimpleLinkNetAppEventHandler called\r\n");
+
     if(pNetAppEvent == NULL)
     {
         return;
     }
+    UART_PRINT("SimpleLinkNetAppEventHandler called with ID: %d\r\n",pNetAppEvent->Id);
 
     switch(pNetAppEvent->Id)
     {
@@ -305,10 +335,12 @@ void SimpleLinkNetAppEventHandler(SlNetAppEvent_t *pNetAppEvent)
             break;
 
         case SL_NETAPP_EVENT_DHCPV4_LEASED:
+            UART_PRINT("IPv4 LEASED\n\r");
             LOCALTIME_SET_STATUS_BIT(LocalTime_CB.status, STATUS_BIT_IP_LEASED);
             break;
 
         case SL_NETAPP_EVENT_DHCPV4_RELEASED:
+            UART_PRINT("IPv4 RELEASED\n\r");
             LOCALTIME_CLR_STATUS_BIT(LocalTime_CB.status, STATUS_BIT_IP_LEASED);
             break;
 
@@ -331,6 +363,14 @@ void SimpleLinkNetAppEventHandler(SlNetAppEvent_t *pNetAppEvent)
 void SimpleLinkHttpServerEventHandler(SlNetAppHttpServerEvent_t *pHttpEvent,
                                     SlNetAppHttpServerResponse_t *pHttpResponse)
 {
+    UART_PRINT("SimpleLinkHttpServerEventHandler called\r\n");
+
+    if(pHttpEvent == NULL)
+    {
+        return;
+    }
+    UART_PRINT("SimpleLinkHttpServerEventHandler called with ID: %d\r\n",pHttpEvent->Event);
+
 }
 
 //*****************************************************************************
@@ -344,6 +384,14 @@ void SimpleLinkHttpServerEventHandler(SlNetAppHttpServerEvent_t *pHttpEvent,
 //*****************************************************************************
 void SimpleLinkGeneralEventHandler(SlDeviceEvent_t *pDevEvent)
 {
+    UART_PRINT("SimpleLinkGeneralEventHandler called\r\n");
+
+    if(pDevEvent == NULL)
+    {
+        return;
+    }
+    UART_PRINT("SimpleLinkGeneralEventHandler called with ID: %d\r\n",pDevEvent->Id);
+
 }
 
 //*****************************************************************************
@@ -357,6 +405,14 @@ void SimpleLinkGeneralEventHandler(SlDeviceEvent_t *pDevEvent)
 //*****************************************************************************
 void SimpleLinkSockEventHandler(SlSockEvent_t *pSock)
 {
+    UART_PRINT("SimpleLinkSockEventHandler called\r\n");
+
+    if(pSock == NULL)
+    {
+        return;
+    }
+    UART_PRINT("SimpleLinkSockEventHandler called with ID: %d\r\n",pSock->Event);
+
 }
 
 
@@ -372,7 +428,7 @@ int16_t createTemplate(void)
     }
     else
     {
-        UART_PRINT("Template object created successfully. \n\n\r");
+        UART_PRINT("Template object created successfully. \n\r");
     }
 
 
@@ -384,7 +440,7 @@ int16_t createTemplate(void)
     }
     else
     {
-        UART_PRINT("Template object created successfully. \n\n\r");
+        UART_PRINT("Template object created successfully. \n\r");
     }
     return retVal;
 
@@ -446,7 +502,11 @@ char *Volume_k =  "\"Volume\"";
 char *CRC_k =  "\"CRC\"";
 char *Debug_k =  "\"Debug\"";
 char *Debug_CCCount_k =  "\"CCCount\"";
-char *Debug_CCError_k =  "\"CCError\"";
+char *Debug_CCPostError_k =  "\"CCPostError\"";
+char *Debug_CCParseError_k =  "\"CCParseError\"";
+
+
+
 char errorArrayString[MAX_ERROR_ARRAY*16] = {0};//"[[0],[0]],[[1],[2]]";
 
 int16_t AdjustTransmitionCount(char* jsonBuffer)
@@ -481,64 +541,73 @@ int16_t AdjustTransmitionCount(char* jsonBuffer)
             else
             {
                 UART_PRINT("Debug Json CCCount was set successfully with %d\n\r",TransmitionCount);
-                char *temperrorArrayString=errorArrayString;
-                temperrorArrayString+=sprintf(temperrorArrayString,"[");
-                int i;
-                for(i=0;i<MAX_ERROR_ARRAY;i++)
-                {
 
-                    if(errorArray[i][0] == 0)
-                    {
-                        if(i!=0)
-                        {
-                            temperrorArrayString--;
-                            *temperrorArrayString=0;
-                        }
-                        break;
-                    }
-                    temperrorArrayString+=sprintf(temperrorArrayString,"[%i,%i],",errorArray[i][0],errorArray[i][1]);
-                }
-                temperrorArrayString+=sprintf(temperrorArrayString,"]");
-                retVal = Json_setValue(jsonDebugObjHandle, Debug_CCError_k, errorArrayString, strlen(errorArrayString));
+                retVal = Json_setValue(jsonDebugObjHandle, Debug_CCParseError_k, &CCParseError, size);
                 if(retVal < 0)
                 {
-                    UART_PRINT("Error: %d  , Couldn't set the Debug Json CCError\n\r", retVal);
+                    UART_PRINT("Error: %d  , Couldn't set the Debug Json CCCount\n\r", retVal);
                 }
                 else
                 {
-                    UART_PRINT("Debug Json CCError was set successfully: %s \n\r",errorArrayString);
-                    size=128;
-                    retVal = Json_build(jsonDebugObjHandle, Debug_v, &size);
+                    UART_PRINT("Debug Json CCParseError was set successfully with %d\n\r",CCParseError);
+                    char *temperrorArrayString=errorArrayString;
+                    temperrorArrayString+=sprintf(temperrorArrayString,"[");
+                    int i;
+                    for(i=0;i<MAX_ERROR_ARRAY;i++)
+                    {
+
+                        if(errorArray[i][0] == 0)
+                        {
+                            if(i!=0)
+                            {
+                                temperrorArrayString--;
+                                *temperrorArrayString=0;
+                            }
+                            break;
+                        }
+                        temperrorArrayString+=sprintf(temperrorArrayString,"[%i,%i],",errorArray[i][0],errorArray[i][1]);
+                    }
+                    temperrorArrayString+=sprintf(temperrorArrayString,"]");
+                    retVal = Json_setValue(jsonDebugObjHandle, Debug_CCPostError_k, errorArrayString, strlen(errorArrayString));
                     if(retVal < 0)
                     {
-                        UART_PRINT("Error: %d  , Couldn't build Debug Json\n\r", retVal);
+                        UART_PRINT("Error: %d  , Couldn't set the Debug Json CCPostError\n\r", retVal);
                     }
                     else
                     {
-                        UART_PRINT("Debug Json was build successfully \n\r");
-                        retVal = Json_setValue(jsonObjHandle, Debug_k, Debug_v, size);
+                        UART_PRINT("Debug Json CCPostError was set successfully: %s \n\r",errorArrayString);
+                        size=128;
+                        retVal = Json_build(jsonDebugObjHandle, Debug_v, &size);
                         if(retVal < 0)
                         {
-                            UART_PRINT("Error: %d  , Couldn't set the Debug Json with CCCount\n\r", retVal);
+                            UART_PRINT("Error: %d  , Couldn't build Debug Json\n\r", retVal);
                         }
                         else
                         {
-                            UART_PRINT("Debug Json was set successfully in JSON\n\r");
-                            size=512;
-                            retVal = Json_build(jsonObjHandle, jsonBuffer, &size);
+                            UART_PRINT("Debug Json was build successfully \n\r");
+                            retVal = Json_setValue(jsonObjHandle, Debug_k, Debug_v, size);
                             if(retVal < 0)
                             {
-                                UART_PRINT("Error: %d  , Couldn't build Debug Json\n\r", retVal);
+                                UART_PRINT("Error: %d  , Couldn't set the Debug Json with CCCount\n\r", retVal);
                             }
                             else
                             {
-                                UART_PRINT("Json was build successfully\n\r");
+                                UART_PRINT("Debug Json was set successfully in JSON\n\r");
+                                size=512;
+                                retVal = Json_build(jsonObjHandle, jsonBuffer, &size);
+                                if(retVal < 0)
+                                {
+                                    UART_PRINT("Error: %d  , Couldn't build Debug Json\n\r", retVal);
+                                }
+                                else
+                                {
+                                    UART_PRINT("Json was build successfully\n\r");
+                                }
                             }
                         }
                     }
                 }
             }
-
         }
     }
     return retVal;
@@ -865,28 +934,15 @@ void LocalTime_setUseCase(void)
 void LocalTime_connect(void)
 {
     SlWlanSecParams_t   secParams = {0};
-    char                sel[2];
-    uint8_t             i = 0;
-    
+    if (LOCALTIME_IS_IP_ACQUIRED(LocalTime_CB.status)&&LOCALTIME_IS_CONNECTED(LocalTime_CB.status)) return;
+
+
     UART_PRINT("Please wait...trying to connect to the AP\n\r");
     UART_PRINT("\n\r");
     secParams.Key = (signed char*)LOCALTIME_SECURITY_KEY;
     secParams.KeyLen = strlen(LOCALTIME_SECURITY_KEY);
     secParams.Type = LOCALTIME_SECURITY_TYPE;
     sl_WlanConnect((signed char*)LOCALTIME_SSID_NAME, strlen(LOCALTIME_SSID_NAME), 0, &secParams, 0);
-    i = 0;
-    while ((!LOCALTIME_IS_IP_ACQUIRED(LocalTime_CB.status)) && (i < LOCALTIME_IP_ACQUIRED_WAIT_SEC))
-    {
-        sleep(1);
-        i++;
-    }
-
-    if (!LOCALTIME_IS_IP_ACQUIRED(LocalTime_CB.status))
-    {
-        UART_PRINT("Could not connect to AP %s\n\r",LOCALTIME_SSID_NAME);
-        UART_PRINT("Please press enter to continue or reset the device after configure your network parameters.\n\r");
-        GetCmd(sel,sizeof(sel));
-    }    
 }
 
 /*
@@ -1001,6 +1057,8 @@ void mainThread(void *pvParameters)
 
     int len=0;
     char message[512]={0};
+    char Debugmessage[1024]={0};
+
     /* Print Application name */
 /*
  *     HTTPClient_extSecParams httpClientSecParams;
@@ -1090,7 +1148,6 @@ void mainThread(void *pvParameters)
     /* initialize the device */
     LocalTime_initDevice();
 
-    LocalTime_connect();
 
      createTemplate();
      createObject();
@@ -1103,6 +1160,8 @@ void mainThread(void *pvParameters)
 
      while (1)
      {
+         LocalTime_connect();
+
          UART_PRINT("\n\ruartRxThread ready to recive \n\r");
          sl_Memset(message,0,512);
          len=GetString(message,sizeof(message));
@@ -1124,13 +1183,20 @@ void mainThread(void *pvParameters)
 
                      UART_PRINT("HTTP Response Status Code: %d\n\r\n\r", statusCode);
                      Watchdog_clear(watchdogHandle);
-                     UART_PRINT(message);
+                     //UART_PRINT(message);
+                     bool moreDataFlag = false;
+
+                     HTTPClient_readResponseBody(httpClientHandle, Debugmessage, 1024, &moreDataFlag);
+
+
 
                      if(statusCode == HTTP_SC_OK)
                      {
                          TransmitionCount++;
                          for(i=0;i<MAX_ERROR_ARRAY;i++)
                          {
+                             if(errorArray[i][0]==0) break;
+
                              errorArray[i][0]=0;
                              errorArray[i][1]=0;
                          }
@@ -1151,23 +1217,6 @@ void mainThread(void *pvParameters)
                                  break;
                              }
                          }
-
-/*
-                         bool moreDataFlag = false;
-
-                         do {
-                             statusCode = HTTPClient_readResponseBody(httpClientHandle, message, sizeof(message), &moreDataFlag);
-                             if (statusCode < 0) {
-                                 UART_PRINT("httpTask(%d): response body processing failed\n\r", statusCode);
-                             }
-                             else
-                             {
-                                 len += statusCode;
-                                 UART_PRINT(message);
-                             }
-                         }while (moreDataFlag);
-                         UART_PRINT("\r\n\r\n\r\n");
-                         */
                      }
                  }
                  else
@@ -1178,6 +1227,7 @@ void mainThread(void *pvParameters)
              else
              {
                  UART_PRINT("Parse error with message: %s",message);
+                 CCParseError++;
              }
          }
      }
