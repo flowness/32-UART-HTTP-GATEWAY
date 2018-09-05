@@ -558,16 +558,16 @@ int16_t AdjustTransmitionCount(char* jsonBuffer)
 
                         if(errorArray[i][0] == 0)
                         {
-                            if(i!=0)
+                           /* if(i!=0)
                             {
                                 temperrorArrayString--;
                                 *temperrorArrayString=0;
-                            }
+                            }*/
                             break;
                         }
                         temperrorArrayString+=sprintf(temperrorArrayString,"[%i,%i],",errorArray[i][0],errorArray[i][1]);
                     }
-                    temperrorArrayString+=sprintf(temperrorArrayString,"]");
+                    temperrorArrayString+=sprintf(temperrorArrayString,"[0,0]]");
                     retVal = Json_setValue(jsonDebugObjHandle, Debug_CCPostError_k, errorArrayString, strlen(errorArrayString));
                     if(retVal < 0)
                     {
@@ -1183,7 +1183,7 @@ void mainThread(void *pvParameters)
 
                      UART_PRINT("HTTP Response Status Code: %d\n\r\n\r", statusCode);
                      Watchdog_clear(watchdogHandle);
-                     //UART_PRINT(message);
+                     UART_PRINT(message);
                      bool moreDataFlag = false;
 
                      HTTPClient_readResponseBody(httpClientHandle, Debugmessage, 1024, &moreDataFlag);
