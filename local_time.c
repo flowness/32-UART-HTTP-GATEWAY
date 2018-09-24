@@ -81,10 +81,13 @@ Json_Handle jsonDebugObjHandle;
  */                       "}";
 
   char *templateDebugstr =  "{"
-                                "\"MSPCount\":uint32,"
-                                "\"CCCount\":uint32,"
-                                "\"CCParseError\":uint32,"
-                                "\"CCPostError\":raw"
+                              "\"MSPMesError\":uint32,"
+                              "\"MSPAlgError\":string,"
+                              "\"MSPCount\":uint32,"
+                              "\"MSPMinMax\": [int32,int32,int32,int32],"
+                              "\"CCCount\":uint32,"
+                              "\"CCParseError\":uint32,"
+                              "\"CCPostError\":raw"
                             "}";
 
 #define MAX_ERROR_ARRAY 10
@@ -513,7 +516,7 @@ int16_t AdjustTransmitionCount(char* jsonBuffer)
 {
     int16_t retVal;
     uint16_t size=128;
-    char Debug_v[128]={0};
+    char Debug_v[256]={0};
 
     retVal = Json_getValue(jsonObjHandle,Debug_k,&Debug_v,&size);
     if(retVal < 0)
@@ -523,7 +526,7 @@ int16_t AdjustTransmitionCount(char* jsonBuffer)
     }
     else
     {
-        UART_PRINT("got Json Debug successfully\n\r");
+        //UART_PRINT("got Json Debug successfully\n\r");
         retVal = Json_parse(jsonDebugObjHandle,Debug_v, strlen(Debug_v));
         if(retVal < 0)
         {
@@ -531,7 +534,7 @@ int16_t AdjustTransmitionCount(char* jsonBuffer)
         }
         else
         {
-            UART_PRINT("Debug Json was parsed successfully \n\r");
+            //UART_PRINT("Debug Json was parsed successfully \n\r");
             size=sizeof(TransmitionCount);
             retVal = Json_setValue(jsonDebugObjHandle, Debug_CCCount_k, &TransmitionCount, size);
             if(retVal < 0)
@@ -540,7 +543,7 @@ int16_t AdjustTransmitionCount(char* jsonBuffer)
             }
             else
             {
-                UART_PRINT("Debug Json CCCount was set successfully with %d\n\r",TransmitionCount);
+                //UART_PRINT("Debug Json CCCount was set successfully with %d\n\r",TransmitionCount);
 
                 retVal = Json_setValue(jsonDebugObjHandle, Debug_CCParseError_k, &CCParseError, size);
                 if(retVal < 0)
@@ -549,7 +552,7 @@ int16_t AdjustTransmitionCount(char* jsonBuffer)
                 }
                 else
                 {
-                    UART_PRINT("Debug Json CCParseError was set successfully with %d\n\r",CCParseError);
+                    //UART_PRINT("Debug Json CCParseError was set successfully with %d\n\r",CCParseError);
                     char *temperrorArrayString=errorArrayString;
                     temperrorArrayString+=sprintf(temperrorArrayString,"[");
                     int i;
@@ -575,8 +578,8 @@ int16_t AdjustTransmitionCount(char* jsonBuffer)
                     }
                     else
                     {
-                        UART_PRINT("Debug Json CCPostError was set successfully: %s \n\r",errorArrayString);
-                        size=128;
+                        //UART_PRINT("Debug Json CCPostError was set successfully: %s \n\r",errorArrayString);
+                        size=256;
                         retVal = Json_build(jsonDebugObjHandle, Debug_v, &size);
                         if(retVal < 0)
                         {
@@ -584,7 +587,7 @@ int16_t AdjustTransmitionCount(char* jsonBuffer)
                         }
                         else
                         {
-                            UART_PRINT("Debug Json was build successfully \n\r");
+                            //UART_PRINT("Debug Json was build successfully \n\r");
                             retVal = Json_setValue(jsonObjHandle, Debug_k, Debug_v, size);
                             if(retVal < 0)
                             {
@@ -592,7 +595,7 @@ int16_t AdjustTransmitionCount(char* jsonBuffer)
                             }
                             else
                             {
-                                UART_PRINT("Debug Json was set successfully in JSON\n\r");
+                                //UART_PRINT("Debug Json was set successfully in JSON\n\r");
                                 size=512;
                                 retVal = Json_build(jsonObjHandle, jsonBuffer, &size);
                                 if(retVal < 0)
@@ -1104,8 +1107,8 @@ void mainThread(void *pvParameters)
     /* Configure the UART */
     InitTerm();
     
-    /* Turn on user LED */
-    GPIO_write(Board_GPIO_LED0, Board_GPIO_LED_ON);
+    /* Turn off user LED */
+    GPIO_write(Board_GPIO_LED0, Board_GPIO_LED_OFF);
     
     /* clear SimpleLink Status */
     LocalTime_CB.status = 0;
@@ -1136,6 +1139,7 @@ void mainThread(void *pvParameters)
     {
         UART_PRINT("httpTask(%d): creation of http client handle failed", statusCode);
     }
+    GPIO_write(Board_GPIO_LED0, Board_GPIO_LED_ON);
 
     statusCode = HTTPClient_setHeader(httpClientHandle, HTTPClient_HFIELD_REQ_USER_AGENT,USER_AGENT,strlen(USER_AGENT),HTTPClient_HFIELD_PERSISTENT);
     if (statusCode < 0) {
@@ -1161,14 +1165,15 @@ void mainThread(void *pvParameters)
      while (1)
      {
          LocalTime_connect();
+         GPIO_toggle(Board_GPIO_LED0);
 
-         UART_PRINT("\n\ruartRxThread ready to recive \n\r");
+         UART_PRINT("\n\r\t\t\tuartRxThread ready to receive\n\r\t\t\t=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+\n\r");
          sl_Memset(message,0,512);
          len=GetString(message,sizeof(message));
 
          if(len>0)
          {
-             UART_PRINT("uartRxThread(%d) string recived \n\r",len);
+             UART_PRINT("uartRxThread(%d) string received \n\r",len);
 
              int16_t retVal=parse(message);
              if (retVal>=0)
