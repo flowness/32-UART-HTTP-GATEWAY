@@ -44,7 +44,7 @@
 /* TI-DRIVERS Header files */
 #include <ti/drivers/GPIO.h>
 #include <ti/drivers/SPI.h>
-//#include <ti/drivers/UART.h>
+#include <ti/drivers/UART.h>
 #include <ti/drivers/Power.h>
 #include <ti/drivers/net/wifi/simplelink.h>
 #include <ti/net/utils/clock_sync.h>
@@ -94,7 +94,7 @@ Json_Handle jsonDebugObjHandle;
 
 unsigned long TransmitionCount=0;
 unsigned long CCParseError=0;
-
+uint8_t       ReconnectTimeout=0;
 
   int errorArray[MAX_ERROR_ARRAY][2];
 
@@ -103,7 +103,11 @@ unsigned long CCParseError=0;
 //*****************************************************************************
 #define LOCALTIME_APPLICATION_NAME                      "Local Time"
 #define LOCALTIME_APPLICATION_VERSION                   "1.0.2"
-
+/*
+#define LOCALTIME_SSID_NAME                             "Azar"                // AP SSID
+#define LOCALTIME_SECURITY_TYPE                         SL_WLAN_SEC_TYPE_WPA_WPA2   // Security type could be SL_WLAN_SEC_TYPE_WPA_WPA2
+#define LOCALTIME_SECURITY_KEY                          "azarhomenetwork"
+*/
 #define LOCALTIME_SSID_NAME                             "AquaSafe"                // AP SSID
 #define LOCALTIME_SECURITY_TYPE                         SL_WLAN_SEC_TYPE_WPA_WPA2   // Security type could be SL_WLAN_SEC_TYPE_WPA_WPA2
 #define LOCALTIME_SECURITY_KEY                          "Paradox1"                  // Password of the secured AP
@@ -936,16 +940,26 @@ void LocalTime_setUseCase(void)
 //*****************************************************************************
 void LocalTime_connect(void)
 {
+
     SlWlanSecParams_t   secParams = {0};
-    if (LOCALTIME_IS_IP_ACQUIRED(LocalTime_CB.status)&&LOCALTIME_IS_CONNECTED(LocalTime_CB.status)) return;
+    if (LOCALTIME_IS_IP_ACQUIRED(LocalTime_CB.status)&&LOCALTIME_IS_CONNECTED(LocalTime_CB.status))
+    {
+        ReconnectTimeout=0;
+        return;
+    }
 
+    if(ReconnectTimeout++==0)
+    {
+        UART_PRINT("Please wait...trying to connect to the AP\n\r");
+        UART_PRINT("\n\r");
+        secParams.Key = (signed char*)LOCALTIME_SECURITY_KEY;
+        secParams.KeyLen = strlen(LOCALTIME_SECURITY_KEY);
+        secParams.Type = LOCALTIME_SECURITY_TYPE;
+        sl_WlanConnect((signed char*)LOCALTIME_SSID_NAME, strlen(LOCALTIME_SSID_NAME), 0, &secParams, 0);
+    }
 
-    UART_PRINT("Please wait...trying to connect to the AP\n\r");
-    UART_PRINT("\n\r");
-    secParams.Key = (signed char*)LOCALTIME_SECURITY_KEY;
-    secParams.KeyLen = strlen(LOCALTIME_SECURITY_KEY);
-    secParams.Type = LOCALTIME_SECURITY_TYPE;
-    sl_WlanConnect((signed char*)LOCALTIME_SSID_NAME, strlen(LOCALTIME_SSID_NAME), 0, &secParams, 0);
+    if(ReconnectTimeout>5) ReconnectTimeout=0;
+
 }
 
 /*

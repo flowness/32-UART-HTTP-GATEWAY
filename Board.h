@@ -39,8 +39,13 @@ extern "C" {
 #endif
 #include <ti/sysbios/knl/Mailbox.h>
 
+#ifdef __CC3220SF__
 #include "CC3220SF_LAUNCHXL.h"
+#endif
 
+#ifdef __CC3220S__
+#include "CC3220S_LAUNCHXL.h"
+#endif
 
 typedef struct MsgObj {
     Int    id;
@@ -48,6 +53,65 @@ typedef struct MsgObj {
     Bool   free;
     Char   val[512];
 } MsgObj;
+
+#ifdef __CC3220S__
+#define Board_initGeneral            CC3220S_LAUNCHXL_initGeneral
+
+/* These #defines allow us to reuse TI-RTOS across other device families */
+
+#define Board_ADC0                   CC3220S_LAUNCHXL_ADC0
+#define Board_ADC1                   CC3220S_LAUNCHXL_ADC1
+
+#define Board_CAPTURE0               CC3220S_LAUNCHXL_CAPTURE0
+#define Board_CAPTURE1               CC3220S_LAUNCHXL_CAPTURE1
+
+#define Board_CRYPTO0                CC3220S_LAUNCHXL_CRYPTO0
+
+#define Board_GPIO_LED_ON            CC3220S_LAUNCHXL_GPIO_LED_ON
+#define Board_GPIO_LED_OFF           CC3220S_LAUNCHXL_GPIO_LED_OFF
+#define Board_GPIO_LED0              CC3220S_LAUNCHXL_GPIO_LED_D7
+/*
+ *  CC3220S_LAUNCHXL_GPIO_LED_D5 and CC3220S_LAUNCHXL_GPIO_LED_D6 are shared with the I2C
+ *  and PWM peripherals. In order for those examples to work, these LEDs are
+ *  taken out of gpioPinCOnfig[]
+ */
+#define Board_GPIO_LED1              CC3220S_LAUNCHXL_GPIO_LED_D7
+#define Board_GPIO_LED2              CC3220S_LAUNCHXL_GPIO_LED_D7
+
+#define Board_GPIO_BUTTON0           CC3220S_LAUNCHXL_GPIO_SW2
+#define Board_GPIO_BUTTON1           CC3220S_LAUNCHXL_GPIO_SW3
+
+#define Board_I2C0                   CC3220S_LAUNCHXL_I2C0
+#define Board_I2C_TMP                CC3220S_LAUNCHXL_I2C0
+
+#define Board_I2S0                   CC3220S_LAUNCHXL_I2S0
+
+#define Board_PWM0                   CC3220S_LAUNCHXL_PWM6
+#define Board_PWM1                   CC3220S_LAUNCHXL_PWM7
+
+#define Board_SD0                    CC3220S_LAUNCHXL_SD0
+
+#define Board_SDFatFS0               CC3220S_LAUNCHXL_SD0
+
+/* CC3220S_LAUNCHXL_SPI0 is reserved for the NWP */
+#define Board_SPI0                   CC3220S_LAUNCHXL_SPI1
+
+#define Board_SPI_MASTER             CC3220S_LAUNCHXL_SPI1
+#define Board_SPI_SLAVE              CC3220S_LAUNCHXL_SPI1
+#define Board_SPI_MASTER_READY       CC3220S_LAUNCHXL_SPI_MASTER_READY
+#define Board_SPI_SLAVE_READY        CC3220S_LAUNCHXL_SPI_SLAVE_READY
+
+#define Board_TIMER0                 CC3220S_LAUNCHXL_TIMER0
+#define Board_TIMER1                 CC3220S_LAUNCHXL_TIMER1
+#define Board_TIMER2                 CC3220S_LAUNCHXL_TIMER2
+
+#define Board_UART0                  CC3220S_LAUNCHXL_UART0
+#define Board_UART1                  CC3220S_LAUNCHXL_UART1
+
+#define Board_WATCHDOG0              CC3220S_LAUNCHXL_WATCHDOG0
+#endif
+
+#ifdef __CC3220SF__
 
 #define Board_initGeneral            CC3220SF_LAUNCHXL_initGeneral
 
@@ -100,7 +164,7 @@ typedef struct MsgObj {
 #define Board_UART1                  CC3220SF_LAUNCHXL_UART1
 
 #define Board_WATCHDOG0              CC3220SF_LAUNCHXL_WATCHDOG0
-
+#endif
 /* Board specific I2C addresses */
 #define Board_TMP_ADDR               (0x41)
 #define Board_SENSORS_BP_TMP_ADDR    (0x40)
